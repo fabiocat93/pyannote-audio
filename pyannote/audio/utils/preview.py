@@ -196,6 +196,7 @@ def preview(
     ylim = (-0.1, 1.1)
 
     def make_frame(T: float):
+
         # make sure all subsequent calls to notebook.plot_*
         # will only display the region center on current time
         t = T + segment.start
@@ -214,6 +215,7 @@ def preview(
         ax_wav.set_ylabel("waveform")
 
         for (name, view), ax_view in zip(views.items(), ax_views):
+
             ax_view.clear()
 
             if isinstance(view, Timeline):
@@ -256,7 +258,7 @@ def preview(
     return IPythonVideo(video_path, embed=True)
 
 
-def BROKEN_preview_training_samples(
+def preview_training_samples(
     model: Model,
     blank: float = 1.0,
     video_fps: int = 5,
@@ -311,7 +313,7 @@ def BROKEN_preview_training_samples(
     audio_file = {
         "waveform": waveform,
         "sample_rate": sample_rate,
-        "uri": "TrainingSamples",
+        "uri": model.task.logging_prefix + "TrainingSamples",
     }
 
     return preview(

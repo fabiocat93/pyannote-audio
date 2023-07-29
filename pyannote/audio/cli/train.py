@@ -99,11 +99,7 @@ def train(cfg: DictConfig) -> Optional[float]:
 
     model.configure_optimizers = MethodType(configure_optimizers, model)
 
-    # avoid creating big log files
-    callbacks = [
-        RichProgressBar(refresh_rate=20, leave=True),
-        LearningRateMonitor(),
-    ]
+    callbacks = [RichProgressBar(), LearningRateMonitor(logging_interval="step")]
 
     if fine_tuning:
         # TODO: configure layer freezing

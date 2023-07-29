@@ -63,20 +63,14 @@ class Resolution(Enum):
     CHUNK = 2  # model outputs just one vector for the whole chunk
 
 
-class UnknownSpecificationsError(Exception):
-    pass
-
-
 @dataclass
 class Specifications:
     problem: Problem
     resolution: Resolution
 
-    # (maximum) chunk duration in seconds
-    duration: float
-
-    # (for variable-duration tasks only) minimum chunk duration in seconds
-    min_duration: Optional[float] = None
+    # chunk duration in seconds.
+    # use None for variable-length chunks
+    duration: Optional[float] = None
 
     # use that many seconds on the left- and rightmost parts of each chunk
     # to warm up the model. This is mostly useful for segmentation tasks.
@@ -97,7 +91,8 @@ class Specifications:
     permutation_invariant: bool = False
 
     @cached_property
-    def powerset(self) -> bool:
+    def powerset(self):
+
         if self.powerset_max_classes is None:
             return False
 
@@ -119,12 +114,6 @@ class Specifications:
                 for i in range(0, self.powerset_max_classes + 1)
             )
         )
-
-    def __len__(self):
-        return 1
-
-    def __iter__(self):
-        yield self
 
 
 class TrainDataset(IterableDataset):
@@ -199,7 +188,7 @@ class Task(pl.LightningDataModule):
 
     Attributes
     ----------
-    specifications : Specifications or tuple of Specifications
+    specifications : Specifications or dict of Specifications
         Task specifications (available after `Task.setup` has been called.)
     """
 
@@ -268,28 +257,7 @@ class Task(pl.LightningDataModule):
         """
         pass
 
-    @property
-    def specifications(self) -> Union[Specifications, Tuple[Specifications]]:
-        # setup metadata on-demand the first time specifications are requested and missing
-        if not hasattr(self, "_specifications"):
-            self.setup_metadata()
-        return self._specifications
-
-    @specifications.setter
-    def specifications(
-        self, specifications: Union[Specifications, Tuple[Specifications]]
-    ):
-        self._specifications = specifications
-
-    @property
-    def has_setup_metadata(self):
-        return getattr(self, "_has_setup_metadata", False)
-
-    @has_setup_metadata.setter
-    def has_setup_metadata(self, value: bool):
-        self._has_setup_metadata = value
-
-    def setup_metadata(self):
+    def setup(self, stage: Optional[str] = None):
         """Called at the beginning of training at the very beginning of Model.setup(stage="fit")
 
         Notes
@@ -299,10 +267,7 @@ class Task(pl.LightningDataModule):
         If `specifications` attribute has not been set in `__init__`,
         `setup` is your last chance to set it.
         """
-
-        if not self.has_setup_metadata:
-            self.setup()
-            self.has_setup_metadata = True
+        pass
 
     def setup_loss_func(self):
         pass
@@ -330,6 +295,18 @@ class Task(pl.LightningDataModule):
             drop_last=True,
             collate_fn=partial(self.collate_fn, stage="train"),
         )
+
+    @cached_property
+    def logging_prefix(self):
+
+        prefix = f"{self.__class__.__name__}-"
+        if hasattr(self.protocol, "name"):
+            # "." has a special meaning for pytorch-lightning checkpointing
+            # so we remove dots from protocol names
+            name_without_dots = "".join(self.protocol.name.split("."))
+            prefix += f"{name_without_dots}-"
+
+        return prefix
 
     def default_loss(
         self, specifications: Specifications, target, prediction, weight=None
@@ -394,11 +371,6 @@ class Task(pl.LightningDataModule):
             {"loss": loss}
         """
 
-        if isinstance(self.specifications, tuple):
-            raise NotImplementedError(
-                "Default training/validation step is not implemented for multi-task."
-            )
-
         # forward pass
         y_pred = self.model(batch["X"])
 
@@ -430,11 +402,11 @@ class Task(pl.LightningDataModule):
             return None
 
         self.model.log(
-            f"loss/{stage}",
+            f"{self.logging_prefix}{stage.capitalize()}Loss",
             loss,
             on_step=False,
             on_epoch=True,
-            prog_bar=False,
+            prog_bar=True,
             logger=True,
         )
         return {"loss": loss}
@@ -482,7 +454,7 @@ class Task(pl.LightningDataModule):
         if self._metric is None:
             self._metric = self.default_metric()
 
-        return MetricCollection(self._metric)
+        return MetricCollection(self._metric, prefix=self.logging_prefix)
 
     def setup_validation_metric(self):
         metric = self.metric

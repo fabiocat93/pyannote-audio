@@ -126,8 +126,9 @@ pip install -e .[dev,testing]
 pre-commit install
 ```
 
-## Test
+Tests rely on a set of debugging files available in [`test/data`](test/data) directory.
+Set `PYANNOTE_DATABASE_CONFIG` environment variable to `test/data/database.yml` before running tests:
 
 ```bash
-pytest
+PYANNOTE_DATABASE_CONFIG=tests/data/database.yml pytest
 ```

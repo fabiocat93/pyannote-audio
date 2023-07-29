@@ -39,6 +39,7 @@ class SimpleSegmentationModel(Model):
         num_channels: int = 1,
         task: Optional[Task] = None,
     ):
+
         super().__init__(sample_rate=sample_rate, num_channels=num_channels, task=task)
 
         self.mfcc = MFCC(
@@ -59,16 +60,7 @@ class SimpleSegmentationModel(Model):
 
     def build(self):
         # define task-dependent layers
-
-        if isinstance(self.specifications, tuple):
-            raise ValueError("SimpleSegmentationModel does not support multi-tasking.")
-
-        if self.specifications.powerset:
-            out_features = self.specifications.num_powerset_classes
-        else:
-            out_features = len(self.specifications.classes)
-
-        self.classifier = nn.Linear(32 * 2, out_features)
+        self.classifier = nn.Linear(32 * 2, len(self.specifications.classes))
         self.activation = self.default_activation()
 
     def forward(self, waveforms: torch.Tensor) -> torch.Tensor:

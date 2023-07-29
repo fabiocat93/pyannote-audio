@@ -20,11 +20,10 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-from typing import Dict, Mapping, Tuple, Union
+from typing import Mapping, Tuple, Union
 
 import numpy as np
 from pyannote.core import Annotation, SlidingWindow, SlidingWindowFeature
-from pyannote.core.utils.types import Label
 from pyannote.metrics.diarization import DiarizationErrorRate
 
 from pyannote.audio.core.inference import Inference
@@ -75,10 +74,8 @@ class SpeakerDiarizationMixin:
 
     @staticmethod
     def optimal_mapping(
-        reference: Union[Mapping, Annotation],
-        hypothesis: Annotation,
-        return_mapping: bool = False,
-    ) -> Union[Annotation, Tuple[Annotation, Dict[Label, Label]]]:
+        reference: Union[Mapping, Annotation], hypothesis: Annotation
+    ) -> Annotation:
         """Find the optimal bijective mapping between reference and hypothesis labels
 
         Parameters
@@ -87,19 +84,13 @@ class SpeakerDiarizationMixin:
             Reference annotation. Can be an Annotation instance or
             a mapping with an "annotation" key.
         hypothesis : Annotation
-            Hypothesized annotation.
-        return_mapping : bool, optional
-            Return the label mapping itself along with the mapped annotation. Defaults to False.
 
         Returns
         -------
         mapped : Annotation
             Hypothesis mapped to reference speakers.
-        mapping : dict, optional
-            Mapping between hypothesis (key) and reference (value) labels
-            Only returned if `return_mapping` is True.
-        """
 
+        """
         if isinstance(reference, Mapping):
             reference = reference["annotation"]
             annotated = reference["annotated"] if "annotated" in reference else None
@@ -109,13 +100,7 @@ class SpeakerDiarizationMixin:
         mapping = DiarizationErrorRate().optimal_mapping(
             reference, hypothesis, uem=annotated
         )
-        mapped_hypothesis = hypothesis.rename_labels(mapping=mapping)
-
-        if return_mapping:
-            return mapped_hypothesis, mapping
-
-        else:
-            return mapped_hypothesis
+        return hypothesis.rename_labels(mapping=mapping)
 
     # TODO: get rid of onset/offset (binarization should be applied before calling speaker_count)
     # TODO: get rid of warm-up parameter (trimming should be applied before calling speaker_count)
@@ -186,8 +171,7 @@ class SpeakerDiarizationMixin:
         Returns
         -------
         continuous_diarization : Annotation
-            Continuous diarization, with speaker labels as integers,
-            corresponding to the speaker indices in the discrete diarization.
+            Continuous diarization
         """
 
         binarize = Binarize(
